@@ -1,2 +1,7 @@
 /code
 variables.tf
+.tfstate.backup
+.tfstate.backup*
+.tfstate
+.tfstate*
+/automation/staging_testing_envs

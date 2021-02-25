@@ -10,49 +10,28 @@ This script has a couple of operational assumptions:
 */
 
 
-// Pem path
-variable "pem_file_path" {
-  type = string
-  default = "/Users/jbransfield/.ssh/admin-testing.pem"
-}
-
-
-// Key pair 
-// resource "aws_key_pair" "ec2key" {
-//   key_name = "publicKey"
-//   public_key = file(var.public_key_path)
-// }
-
-
 // Provider/region:
 provider "aws" {
   region = var.region
 }
 
 
+// Associate an elastic IP with the created AWS instance:
+resource "aws_eip_association" "hack-eip_assoc" {
+  instance_id   = aws_instance.hack-terraform-test-instance.id
+  allocation_id = var.aws_eip_allocation_id
+}
+
+
 // Main EC2 instance setup:
-resource "aws_instance" "mywallst-test-instance" {
+resource "aws_instance" "hack-terraform-test-instance" {
   ami           = var.instance_ami
   instance_type = var.instance_type
-  subnet_id     = aws_subnet.subnet_public.id
+  subnet_id     = aws_subnet.hack-subnet_public.id
   key_name      = var.public_key_name
-  vpc_security_group_ids = [aws_security_group.security_group_instance.id]
+  vpc_security_group_ids = [aws_security_group.hack-security_group_instance.id]
   associate_public_ip_address = true
 
-  // // Create the directory to which the files will be uploaded to:
-  // provisioner "remote-exec" {
-  //   inline = [
-  //     "sudo yum -y install python-pip",
-  //     "pip --version"
-  //   ]
-
-  //   connection {
-  //     host = self.public_ip
-  //     type = "ssh"
-  //     user = "centos"
-  //     private_key = file(var.pem_file_path)
-  //   }
-  // }
 
   // Copy all code into the '/app' on the remote instance:
   provisioner "file" {
@@ -84,16 +63,16 @@ resource "aws_instance" "mywallst-test-instance" {
 
 
   tags = {
-    Name = "mywallst-test-instance"
+    Name = "terraform-test-instance"
   }
 
 }
 
 
 // AWS security group for use with EC2 instance:
-resource "aws_security_group" "security_group_instance" {
-  name = "mywallst-test-instance"
-  vpc_id = aws_vpc.vpc.id
+resource "aws_security_group" "hack-security_group_instance" {
+  name = "terraform-test-instance"
+  vpc_id = aws_vpc.hack-vpc.id
 
   ingress {
     from_port   = 8080
@@ -127,10 +106,11 @@ resource "aws_security_group" "security_group_instance" {
 
 
 // Subnet
-resource "aws_subnet" "subnet_public" {
-  vpc_id = aws_vpc.vpc.id
+resource "aws_subnet" "hack-subnet_public" {
+  vpc_id = aws_vpc.hack-vpc.id
   cidr_block = var.cidr_subnet
   map_public_ip_on_launch = "true"
+  depends_on = [aws_internet_gateway.hack-igw]
   availability_zone = var.availability_zone
   tags = {
     "Environment" = var.environment_tag
@@ -139,12 +119,12 @@ resource "aws_subnet" "subnet_public" {
 
 
 // Route table
-resource "aws_route_table" "rtb_public" {
-  vpc_id = aws_vpc.vpc.id
+resource "aws_route_table" "hack-rtb_public" {
+  vpc_id = aws_vpc.hack-vpc.id
 
   route {
       cidr_block = "0.0.0.0/0"
-      gateway_id = aws_internet_gateway.igw.id
+      gateway_id = aws_internet_gateway.hack-igw.id
   }
 
   tags = {
@@ -154,15 +134,15 @@ resource "aws_route_table" "rtb_public" {
 
 
 // Route table public
-resource "aws_route_table_association" "rta_subnet_public" {
-  subnet_id      = aws_subnet.subnet_public.id
-  route_table_id = aws_route_table.rtb_public.id
+resource "aws_route_table_association" "hack-rta_subnet_public" {
+  subnet_id      = aws_subnet.hack-subnet_public.id
+  route_table_id = aws_route_table.hack-rtb_public.id
 }
 
 
 // Internet gateway
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.vpc.id
+resource "aws_internet_gateway" "hack-igw" {
+  vpc_id = aws_vpc.hack-vpc.id
   tags = {
     "Environment" = var.environment_tag
   }
@@ -170,7 +150,7 @@ resource "aws_internet_gateway" "igw" {
 
 
 // VPC
-resource "aws_vpc" "vpc" {
+resource "aws_vpc" "hack-vpc" {
   cidr_block = var.cidr_vpc
   enable_dns_support   = true
   enable_dns_hostnames = true
